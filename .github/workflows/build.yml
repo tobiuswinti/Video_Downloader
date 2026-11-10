@@ -1,0 +1,46 @@
+name: APK bauen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: APK bauen
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Version lesen
+        id: v
+        run: |
+          name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          cp app/build/outputs/apk/debug/app-debug.apk "VideoCatcher-$name.apk"
+
+      # Die APK haengt danach am Release: am Handy unter "Releases" antippen
+      - name: Release veroeffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.name }}-${{ github.run_number }}
+          name: VideoCatcher ${{ steps.v.outputs.name }} (Build ${{ github.run_number }})
+          files: VideoCatcher-${{ steps.v.outputs.name }}.apk
+          body: |
+            APK herunterladen und antippen, um zu installieren.
+            Beim ersten Mal «Unbekannte Apps installieren» für den Browser erlauben.

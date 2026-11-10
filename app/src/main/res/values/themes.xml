@@ -1,0 +1,11 @@
+<resources>
+    <color name="vc_bg">#0B0D10</color>
+    <color name="vc_accent">#FFD400</color>
+
+    <style name="Theme.VideoCatcher" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/vc_bg</item>
+        <item name="android:statusBarColor">@color/vc_bg</item>
+        <item name="android:navigationBarColor">@color/vc_bg</item>
+        <item name="android:colorAccent">@color/vc_accent</item>
+    </style>
+</resources>

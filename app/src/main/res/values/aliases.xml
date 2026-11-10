@@ -1,0 +1,4 @@
+<resources>
+    <!-- Vor Android 8 gibt es keine adaptiven Icons: dort das fertige Vektor-Icon nehmen -->
+    <item name="ic_launcher" type="mipmap">@drawable/ic_launcher_legacy</item>
+</resources>
