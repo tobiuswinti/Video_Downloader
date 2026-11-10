@@ -24,6 +24,7 @@ import win.wintertools.videocatcher.browser.MediaSniffer
 import win.wintertools.videocatcher.data.Download
 import win.wintertools.videocatcher.data.DownloadStore
 import win.wintertools.videocatcher.data.Kind
+import win.wintertools.videocatcher.data.TitleParser
 import win.wintertools.videocatcher.net.FatalDownloadException
 import win.wintertools.videocatcher.net.FileDownloader
 import win.wintertools.videocatcher.net.HlsDownloader
@@ -288,5 +289,56 @@ class DownloadLogicTest {
         assertEquals("Stream · 1:20 Min.", MediaSniffer.describe(stream, null, null, null))
         val master = MediaSniffer.classify("$base/master.m3u8", null)!!
         assertEquals("Stream · beste Qualität 1080p", MediaSniffer.describe(master, null, null, null))
+    }
+
+    // ------------------------------------------------------------- Einordnung
+
+    @Test
+    fun titleParserFindsSeriesSeasonAndEpisode() {
+        fun p(t: String) = TitleParser.parse(t).let { Triple(it.series, it.season, it.episode) }
+
+        assertEquals(Triple("Der Bergdoktor", 3, 7), p("Der Bergdoktor S03E07 - Stream"))
+        assertEquals(Triple("Der Bergdoktor", 3, 7), p("Der.Bergdoktor.s03.e07.720p"))
+        assertEquals(Triple("Tatort", 1, 12), p("Tatort - Staffel 1 Folge 12"))
+        assertEquals(Triple("Tatort", 2, 4), p("Tatort Season 2, Episode 4"))
+        assertEquals(Triple("Die Sendung", 4, 15), p("Die Sendung 4x15"))
+        assertEquals(Triple("Die Sendung", 1, 9), p("Die Sendung – Folge 9"))
+        // Filme bleiben Filme
+        assertEquals(Triple(null, null, null), p("Ein ganz normaler Film (1998)"))
+        assertEquals(Triple(null, null, null), p("Video 1920x1080"))
+        assertEquals(Triple(null, null, null), p("S01E01"))
+    }
+
+    @Test
+    fun filesAreSortedIntoFoldersByGenreAndSeason() {
+        fun path(name: String, genre: String?, series: String?, season: Int?) =
+            win.wintertools.videocatcher.util.PublicStorage.relativePath(name, genre, series, season)
+
+        // android.os.Environment liefert im Test null fuer die Ordnernamen - nur das Ende pruefen
+        assertTrue(path("a.mp4", null, null, null).endsWith("/VideoCatcher"))
+        assertTrue(path("a.mp4", "Krimi", null, null).endsWith("/VideoCatcher/Krimi"))
+        assertTrue(path("a.mp4", "Krimi", "Tatort", 2).endsWith("/VideoCatcher/Serien/Tatort/Staffel 2"))
+        assertTrue(path("a.mp4", null, "A/B: C?", null).endsWith("/VideoCatcher/Serien/A B C/Staffel 1"))
+    }
+
+    @Test
+    fun adtsHeaderIsDetectedOnlyWhenItReallyIsOne() {
+        fun frame(size: Int, crc: Boolean): java.nio.ByteBuffer {
+            val b = ByteArray(size) { 0x55 }
+            b[0] = 0xFF.toByte()
+            b[1] = (if (crc) 0xF0 else 0xF1).toByte()
+            b[2] = 0x50
+            b[3] = (0x80 or ((size shr 11) and 0x03)).toByte()
+            b[4] = ((size shr 3) and 0xFF).toByte()
+            b[5] = (((size and 0x07) shl 5) or 0x1F).toByte()
+            b[6] = 0xFC.toByte()
+            return java.nio.ByteBuffer.wrap(b)
+        }
+        assertEquals(7, win.wintertools.videocatcher.net.Adts.headerLength(frame(371, crc = false), 371))
+        assertEquals(9, win.wintertools.videocatcher.net.Adts.headerLength(frame(371, crc = true), 371))
+        // Laenge im Kopf passt nicht zum Stueck -> kein ADTS-Kopf, nichts abschneiden
+        assertEquals(0, win.wintertools.videocatcher.net.Adts.headerLength(frame(371, crc = false), 300))
+        // Rohes AAC ohne Kopf
+        assertEquals(0, win.wintertools.videocatcher.net.Adts.headerLength(java.nio.ByteBuffer.wrap(ByteArray(200) { 0x21 }), 200))
     }
 }

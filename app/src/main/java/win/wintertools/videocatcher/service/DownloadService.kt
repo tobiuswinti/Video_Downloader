@@ -29,6 +29,8 @@ import win.wintertools.videocatcher.data.Kind
 import win.wintertools.videocatcher.data.Status
 import win.wintertools.videocatcher.net.FileDownloader
 import win.wintertools.videocatcher.net.HlsDownloader
+import win.wintertools.videocatcher.net.LiveRemuxer
+import win.wintertools.videocatcher.net.MuxOutput
 import win.wintertools.videocatcher.net.Remuxer
 import win.wintertools.videocatcher.util.Notify
 import win.wintertools.videocatcher.util.PublicStorage
@@ -117,14 +119,26 @@ class DownloadService : Service() {
                     val current = DownloadStore.get(id) ?: return@withPermit
                     DownloadStore.update(id, force = true) { it.copy(status = Status.RUNNING) }
                     acquireLocks()
-                    val file = when (current.kind) {
-                        Kind.HLS -> HlsDownloader.run(current)
-                        Kind.FILE -> {
-                            FileDownloader.run(current)
-                            File(current.path)
+                    // Rest eines frueheren, abgebrochenen Laufs wegraeumen
+                    current.pendingUri?.let { PublicStorage.delete(this@DownloadService, it) }
+                    var live: LiveRemuxer? = null
+                    val file = try {
+                        when (current.kind) {
+                            Kind.HLS -> {
+                                live = newLiveRemuxer(current)
+                                HlsDownloader.run(current, live)
+                            }
+                            Kind.FILE -> {
+                                FileDownloader.run(current)
+                                File(current.path)
+                            }
                         }
+                    } catch (t: Throwable) {
+                        // Pause, Abbruch oder Fehler: angefangene MP4 verwerfen
+                        live?.abandon()
+                        throw t
                     }
-                    finish(id, file)
+                    finish(id, file, live)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -141,11 +155,53 @@ class DownloadService : Service() {
         job.start()
     }
 
-    /** Nachbearbeitung: Stream nach MP4 umpacken, Datei in den oeffentlichen Speicher legen. */
-    private fun finish(id: Long, downloaded: File) {
-        var file = downloaded
-        val d = DownloadStore.get(id) ?: return
+    private fun workDir(): File = File(getExternalFilesDir(null) ?: filesDir, "downloads")
 
+    private fun relPath(d: Download, name: String): String =
+        PublicStorage.relativePath(name, d.genre, d.series, d.season)
+
+    /** Zieldatei wird erst angelegt, wenn das erste Segment da ist. */
+    private fun newLiveRemuxer(d: Download): LiveRemuxer {
+        val mp4 = d.fileName.substringBeforeLast('.') + ".mp4"
+        return LiveRemuxer {
+            MuxOutput.create(this, mp4, relPath(d, mp4), workDir())?.also { out ->
+                DownloadStore.update(d.id, force = true) { it.copy(pendingUri = out.uri?.toString()) }
+            }
+        }
+    }
+
+    /** Abschluss: MP4 fertigstellen und Datei in den oeffentlichen Speicher legen. */
+    private fun finish(id: Long, downloaded: File, live: LiveRemuxer?) {
+        var file = downloaded
+        val d = DownloadStore.get(id)
+        if (d == null) {
+            live?.abandon()
+            return
+        }
+        val keepNote = d.note?.takeIf { it.startsWith("Ton liegt") }
+
+        // Normalfall bei Streams: die MP4 ist waehrend des Ladens schon entstanden
+        if (live != null && file.name.endsWith(".ts")) {
+            DownloadStore.update(id) { it.copy(speed = 0, note = "Wird abgeschlossen…") }
+            val out = live.finish()
+            if (out != null) {
+                file.delete()
+                DownloadStore.update(id, force = true) {
+                    it.copy(
+                        status = Status.DONE, speed = 0, error = null, note = keepNote,
+                        path = out.file?.absolutePath.orEmpty(), fileName = out.name,
+                        done = out.size, total = out.size,
+                        publicUri = out.uri?.toString(), pendingUri = null
+                    )
+                }
+                Notify.finished(this, id, true, d.title, out.name)
+                return
+            }
+        } else {
+            live?.abandon()
+        }
+
+        // Ausweichweg: nach dem Laden umwandeln
         if (d.kind == Kind.HLS && file.name.endsWith(".ts")) {
             DownloadStore.update(id) { it.copy(speed = 0, note = "Wird in MP4 umgewandelt…") }
             val mp4 = File(file.parentFile, file.name.removeSuffix(".ts") + ".mp4")
@@ -156,16 +212,15 @@ class DownloadService : Service() {
         }
 
         DownloadStore.update(id) { it.copy(note = "Wird gespeichert…") }
-        val uri = PublicStorage.export(this, file, file.name)
+        val uri = PublicStorage.export(this, file, file.name, relPath(d, file.name))
         val size = file.length()
         if (uri != null) file.delete()
 
-        val keepNote = d.note?.takeIf { it.startsWith("Ton liegt") }
         DownloadStore.update(id, force = true) {
             it.copy(
                 status = Status.DONE, speed = 0, error = null, note = keepNote,
-                path = file.absolutePath, fileName = file.name,
-                done = size, total = size, publicUri = uri?.toString()
+                path = if (uri != null) "" else file.absolutePath, fileName = file.name,
+                done = size, total = size, publicUri = uri?.toString(), pendingUri = null
             )
         }
         Notify.finished(this, id, true, d.title, file.name)
@@ -179,7 +234,8 @@ class DownloadService : Service() {
             job?.cancel()
             job?.join()
             if (d != null) {
-                runCatching { File(d.path).delete() }
+                d.pendingUri?.let { PublicStorage.delete(this@DownloadService, it) }
+                if (d.path.isNotEmpty()) runCatching { File(d.path).delete() }
                 // Pfad kann sich waehrend des Ladens geaendert haben (.ts -> .mp4)
                 runCatching { File(d.path.removeSuffix(".ts") + ".mp4").takeIf { d.path.endsWith(".ts") }?.delete() }
             }

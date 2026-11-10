@@ -12,8 +12,8 @@ android {
         applicationId = "win.wintertools.videocatcher"
         minSdk = 24
         targetSdk = 34
-        versionCode = 20
-        versionName = "2.0"
+        versionCode = 21
+        versionName = "2.1"
     }
 
     // Fester Schluessel im Repo: jede gebaute APK hat dieselbe Signatur,
@@ -59,6 +59,10 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+
+    // Eingebauter Player der Mediathek
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

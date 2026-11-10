@@ -1,4 +1,4 @@
-# VideoCatcher 2.0
+# VideoCatcher 2.1
 
 Android-App: eine Webseite öffnen, das Video abspielen, die Videodatei herunterladen.
 Mehrere Downloads laufen gleichzeitig und im Hintergrund weiter.
@@ -6,7 +6,7 @@ Mehrere Downloads laufen gleichzeitig und im Hintergrund weiter.
 ## Installieren (ohne PC)
 
 1. Auf GitHub rechts auf **Releases** tippen.
-2. Beim neuesten Eintrag `VideoCatcher-2.0.apk` antippen und herunterladen.
+2. Beim neuesten Eintrag `VideoCatcher-2.1.apk` antippen und herunterladen.
 3. Datei öffnen → «Unbekannte Apps installieren» für den Browser erlauben → Installieren.
 
 Jede Änderung im Branch `main` baut automatisch eine neue APK (Reiter **Actions**).
@@ -31,9 +31,23 @@ gelöscht werden.
 - Fortschrittsbalken, Prozent, Grösse, Geschwindigkeit; Pause / Weiter / Nochmal / Löschen.
 - Bis zu 3 gleichzeitig, weitere warten. Läuft mit Benachrichtigung im Hintergrund weiter.
 - Bricht die Verbindung ab, wird von selbst an der gleichen Stelle fortgesetzt.
-- Fertige Videos liegen unter `Movies/VideoCatcher` (Ton unter `Music/VideoCatcher`) und
-  erscheinen in der Galerie. Streams werden nach dem Laden in MP4 umgepackt.
+- Streams werden schon **während des Ladens** in MP4 umgepackt (Segment für Segment, direkt in die
+  Zieldatei). Am Ende entfällt das Warten auf eine Umwandlung. Klappt das bei einem Stream nicht,
+  wird wie früher nach dem Laden umgewandelt.
+- Fertige Videos erscheinen in der Galerie, sortiert in Ordner:
+  `Movies/VideoCatcher/<Genre>/` und `Movies/VideoCatcher/Serien/<Serie>/Staffel 1/`.
 - Oben lässt sich ein direkter Video-Link einfügen.
+
+**Mediathek**
+- Regale wie in einer Filmothek: Weiterschauen, Neu, Serien, dann ein Regal pro Genre. Suche oben.
+- Vorschaubilder stammen aus dem Video selbst.
+- Folgen einer Serie stehen zusammen auf einer Serienseite, nach Staffel und Folge geordnet.
+  Erkannt wird das aus dem Titel (`S01E02`, `1x02`, `Staffel 1 Folge 2`, `Folge 5`).
+- **Genre / Serie bearbeiten**: Titel, Film oder Serie, Genre, Staffel, Folge. Das Genre gilt für die
+  ganze Serie. Eigene Dateien wandern dabei in den passenden Ordner (ab Android 11).
+- **＋ Video hinzufügen**: vorhandene MP4 und andere Videos aufnehmen. Sie werden nicht kopiert und
+  beim Entfernen aus der Mediathek nie gelöscht.
+- Eingebauter Player: merkt sich die Stelle, spielt bei Serien die nächste Folge weiter.
 
 ## Was nicht geht
 
@@ -53,7 +67,12 @@ app/src/main/java/win/wintertools/videocatcher/
   browser/MediaSniffer.kt        erkennt Videos unter den Anfragen der Seite
   net/FileDownloader.kt          direkte Dateien, Fortsetzen per HTTP-Range
   net/HlsDownloader.kt           m3u8-Streams, Fortsetzen pro Segment
-  net/Remuxer.kt                 .ts → .mp4 ohne Neukodierung
+  net/LiveRemuxer.kt             .ts → .mp4 während des Ladens
+  net/Remuxer.kt                 Ausweichweg: .ts → .mp4 nach dem Laden
+  data/TitleParser.kt            erkennt Serie, Staffel, Folge aus dem Titel
+  ui/LibraryScreen.kt            Mediathek (Regale, Serienseite, Einordnen)
+  ui/PlayerScreen.kt             eingebauter Player
+  util/Thumbs.kt                 Vorschaubilder aus dem Video
   service/DownloadService.kt     Hintergrund-Dienst, Warteschlange
   data/                          Downloadliste (JSON-Datei), Aktionen
   ui/                            Oberfläche (Compose), kontrastreiche Farben in Theme.kt

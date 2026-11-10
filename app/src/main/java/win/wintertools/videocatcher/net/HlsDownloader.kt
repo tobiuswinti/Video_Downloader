@@ -30,7 +30,11 @@ object HlsDownloader {
                     ?.let { it.endsWith(".m4s") || it.endsWith(".mp4") || it.endsWith(".m4v") } == true
     }
 
-    suspend fun run(d: Download): File {
+    /**
+     * @param live wenn gesetzt, wird ein .ts-Stream schon waehrend des Ladens nach MP4 umgepackt
+     * @return die geladene Datei (.ts oder bei fMP4-Streams direkt .mp4)
+     */
+    suspend fun run(d: Download, live: LiveRemuxer? = null): File {
         val pl = load(d.url, d)
         var file = File(d.path)
         file.parentFile?.mkdirs()
@@ -56,6 +60,14 @@ object HlsDownloader {
         var bytes = if (resume) d.done else 0L
         val total = pl.segments.size
         val note = if (pl.separateAudio) "Ton liegt in einer getrennten Spur – die Datei kann ohne Ton sein." else null
+
+        // fMP4-Streams sind schon MP4: nichts umzupacken
+        val remux = if (pl.isFmp4) null else live
+        if (remux != null && resume && bytes > 0) {
+            DownloadStore.update(d.id) { it.copy(note = "Bereits geladener Teil wird übernommen…") }
+            remux.feed(file, 0, bytes)
+        }
+
         DownloadStore.update(d.id, force = true) {
             it.copy(segTotal = total, segDone = start, done = bytes, total = -1L, note = note)
         }
@@ -68,7 +80,10 @@ object HlsDownloader {
         var tickBytes = bytes
         for (i in start until total) {
             currentCoroutineContext().ensureActive()
+            val before = bytes
             bytes += fetchInto(pl.segments[i], file, d)
+            // Segment sofort in die MP4-Datei uebernehmen
+            remux?.feed(file, before, bytes - before)
 
             val now = System.currentTimeMillis()
             val speed = (bytes - tickBytes) * 1000 / (now - tickTime).coerceAtLeast(1)

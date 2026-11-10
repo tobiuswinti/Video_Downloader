@@ -23,6 +23,7 @@ object Remuxer {
             muxer = MediaMuxer(dst.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
             val trackMap = HashMap<Int, Int>()
+            val aacTracks = HashSet<Int>()
             var bufferSize = 4 * 1024 * 1024
             var hasVideo = false
             for (i in 0 until extractor.trackCount) {
@@ -32,6 +33,7 @@ object Remuxer {
                 if (mime.startsWith("video/")) hasVideo = true
                 extractor.selectTrack(i)
                 trackMap[i] = muxer.addTrack(format)
+                if (mime == "audio/mp4a-latm") aacTracks.add(i)
                 if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
                     bufferSize = maxOf(bufferSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE))
                 }
@@ -47,8 +49,10 @@ object Remuxer {
                 if (size < 0) break
                 val track = trackMap[extractor.sampleTrackIndex]
                 if (track != null) {
+                    // AAC aus TS traegt einen ADTS-Kopf, der in MP4 nicht stehen darf
+                    val skip = if (extractor.sampleTrackIndex in aacTracks) Adts.headerLength(buffer, size) else 0
                     info.set(
-                        0, size, extractor.sampleTime,
+                        skip, size - skip, extractor.sampleTime,
                         extractor.sampleFlags and MediaCodec.BUFFER_FLAG_KEY_FRAME
                     )
                     muxer.writeSampleData(track, buffer, info)

@@ -11,7 +11,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.core.content.ContextCompat
 import win.wintertools.videocatcher.browser.BrowserController
+import android.widget.Toast
 import win.wintertools.videocatcher.data.DownloadStore
+import win.wintertools.videocatcher.data.Downloads
 import win.wintertools.videocatcher.service.DownloadService
 import win.wintertools.videocatcher.ui.App
 import win.wintertools.videocatcher.ui.TAB_BROWSER
@@ -28,13 +30,34 @@ class MainActivity : ComponentActivity() {
     private val tab = mutableIntStateOf(TAB_BROWSER)
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    /** Dateiauswahl fuer "Video hinzufuegen" in der Mediathek */
+    private val pickVideos = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            val n = Downloads.addManual(this, uris)
+            val text = when {
+                n == 0 -> "Schon in der Mediathek"
+                n == 1 -> "1 Video hinzugefügt"
+                else -> "$n Videos hinzugefügt"
+            }
+            Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DownloadStore.init(this)
         Notify.channels(this)
 
         browser = BrowserController(this)
-        setContent { App(browser, tab) }
+        setContent {
+            App(browser, tab, onAddFiles = {
+                try {
+                    pickVideos.launch(arrayOf("video/*"))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Keine Dateiauswahl auf diesem Gerät gefunden", Toast.LENGTH_LONG).show()
+                }
+            })
+        }
         handleIntent(intent)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

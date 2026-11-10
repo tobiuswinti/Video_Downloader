@@ -33,6 +33,20 @@ data class Download(
     val cookie: String? = null,
     /** Ort der fertigen Datei im oeffentlichen Speicher (content://...), falls exportiert */
     val publicUri: String? = null,
+    /** Angefangene Ausgabedatei im oeffentlichen Speicher (wird beim Neustart verworfen) */
+    val pendingUri: String? = null,
+    // ---- Mediathek
+    val genre: String? = null,
+    /** Serienname; null = Film */
+    val series: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    /** Wiedergabe-Position und Laenge in Millisekunden */
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
+    val lastPlayedAt: Long = 0L,
+    /** Von Hand hinzugefuegte Datei: gehoert nicht der App und wird nie geloescht */
+    val manual: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     val active: Boolean get() = status == Status.RUNNING || status == Status.QUEUED
@@ -64,6 +78,15 @@ data class Download(
         putOpt("userAgent", userAgent)
         putOpt("cookie", cookie)
         putOpt("publicUri", publicUri)
+        putOpt("pendingUri", pendingUri)
+        putOpt("genre", genre)
+        putOpt("series", series)
+        putOpt("season", season)
+        putOpt("episode", episode)
+        put("positionMs", positionMs)
+        put("durationMs", durationMs)
+        put("lastPlayedAt", lastPlayedAt)
+        put("manual", manual)
         put("createdAt", createdAt)
     }
 
@@ -86,6 +109,15 @@ data class Download(
             userAgent = o.optStringOrNull("userAgent"),
             cookie = o.optStringOrNull("cookie"),
             publicUri = o.optStringOrNull("publicUri"),
+            pendingUri = o.optStringOrNull("pendingUri"),
+            genre = o.optStringOrNull("genre"),
+            series = o.optStringOrNull("series"),
+            season = if (o.has("season")) o.optInt("season") else null,
+            episode = if (o.has("episode")) o.optInt("episode") else null,
+            positionMs = o.optLong("positionMs", 0L),
+            durationMs = o.optLong("durationMs", 0L),
+            lastPlayedAt = o.optLong("lastPlayedAt", 0L),
+            manual = o.optBoolean("manual", false),
             createdAt = o.optLong("createdAt", System.currentTimeMillis())
         )
 

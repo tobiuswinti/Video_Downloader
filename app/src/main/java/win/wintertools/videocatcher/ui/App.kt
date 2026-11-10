@@ -18,6 +18,9 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -28,12 +31,15 @@ import win.wintertools.videocatcher.data.DownloadStore
 
 const val TAB_BROWSER = 0
 const val TAB_DOWNLOADS = 1
+const val TAB_LIBRARY = 2
 
 @Composable
-fun App(browser: BrowserController, tab: MutableIntState) {
+fun App(browser: BrowserController, tab: MutableIntState, onAddFiles: () -> Unit) {
     val downloads by DownloadStore.items.collectAsState()
     val active = downloads.count { it.active }
     val fullscreen = browser.fullscreenView
+    val library = remember { LibraryState() }
+    var playing by remember { mutableStateOf<PlayRequest?>(null) }
 
     VcTheme {
         Box(Modifier.fillMaxSize().background(Vc.Bg)) {
@@ -68,15 +74,32 @@ fun App(browser: BrowserController, tab: MutableIntState) {
                             label = { Text("Downloads") },
                             colors = colors
                         )
+                        NavigationBarItem(
+                            selected = tab.intValue == TAB_LIBRARY,
+                            onClick = {
+                                // Nochmal antippen fuehrt von der Serienseite zurueck zur Uebersicht
+                                if (tab.intValue == TAB_LIBRARY) library.openSeries = null
+                                tab.intValue = TAB_LIBRARY
+                            },
+                            icon = { Text("▶", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+                            label = { Text("Mediathek") },
+                            colors = colors
+                        )
                     }
                 }
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
-                    // Der Browser bleibt immer bestehen; die Downloads liegen nur darueber.
+                    // Der Browser bleibt immer bestehen; die anderen Reiter liegen nur darueber.
                     // So wird die Seite beim Hin- und Herwechseln nicht neu geladen.
                     BrowserScreen(browser, onShowDownloads = { tab.intValue = TAB_DOWNLOADS })
-                    if (tab.intValue == TAB_DOWNLOADS) {
-                        DownloadsScreen(downloads)
+                    when (tab.intValue) {
+                        TAB_DOWNLOADS -> DownloadsScreen(downloads.filterNot { it.manual })
+                        TAB_LIBRARY -> LibraryScreen(
+                            all = downloads,
+                            state = library,
+                            onPlay = { playing = it },
+                            onAddFiles = onAddFiles
+                        )
                     }
                 }
             }
@@ -92,15 +115,22 @@ fun App(browser: BrowserController, tab: MutableIntState) {
                     )
                 }
             }
+
+            playing?.let { request ->
+                key(request) { PlayerScreen(request, onClose = { playing = null }) }
+            }
         }
 
         BackHandler(
-            enabled = fullscreen != null || tab.intValue == TAB_DOWNLOADS ||
+            enabled = playing != null || fullscreen != null || tab.intValue != TAB_BROWSER ||
                 browser.popups.isNotEmpty() || browser.canGoBack
         ) {
             when {
+                playing != null -> playing = null
                 fullscreen != null -> browser.exitFullscreen()
-                tab.intValue == TAB_DOWNLOADS -> tab.intValue = TAB_BROWSER
+                tab.intValue == TAB_LIBRARY && library.openSeries != null -> library.openSeries = null
+                tab.intValue == TAB_LIBRARY && library.query.isNotEmpty() -> library.query = ""
+                tab.intValue != TAB_BROWSER -> tab.intValue = TAB_BROWSER
                 browser.popups.isNotEmpty() -> browser.closeTopPopup()
                 else -> browser.back()
             }

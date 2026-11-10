@@ -256,7 +256,7 @@ private fun DownloadCard(
         if (d.status == Status.DONE) {
             Spacer(Modifier.height(6.dp))
             Text(
-                if (d.publicUri != null) "Gespeichert in: ${folderOf(d)}/${PublicStorage.FOLDER}"
+                if (d.publicUri != null) "Gespeichert in: ${PublicStorage.relativePath(d.fileName, d.genre, d.series, d.season)}"
                 else "Gespeichert im App-Ordner",
                 color = Vc.TextDim, fontSize = 14.sp
             )
@@ -277,9 +277,6 @@ private fun DownloadCard(
         }
     }
 }
-
-private fun folderOf(d: Download): String =
-    if (PublicStorage.mimeOf(d.fileName).startsWith("audio/")) "Music" else "Movies"
 
 @Composable
 private fun Primary(text: String, modifier: Modifier, onClick: () -> Unit) {
