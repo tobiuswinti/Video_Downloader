@@ -163,7 +163,7 @@ class DownloadService : Service() {
     /** Zieldatei wird erst angelegt, wenn das erste Segment da ist. */
     private fun newLiveRemuxer(d: Download): LiveRemuxer {
         val mp4 = d.fileName.substringBeforeLast('.') + ".mp4"
-        return LiveRemuxer {
+        return LiveRemuxer(File(d.path)) {
             MuxOutput.create(this, mp4, relPath(d, mp4), workDir())?.also { out ->
                 DownloadStore.update(d.id, force = true) { it.copy(pendingUri = out.uri?.toString()) }
             }
@@ -183,7 +183,7 @@ class DownloadService : Service() {
         // Normalfall bei Streams: die MP4 ist waehrend des Ladens schon entstanden
         if (live != null && file.name.endsWith(".ts")) {
             DownloadStore.update(id) { it.copy(speed = 0, note = "Wird abgeschlossen…") }
-            val out = live.finish()
+            val out = live.finish(d.durationMs * 1000)
             if (out != null) {
                 file.delete()
                 DownloadStore.update(id, force = true) {
@@ -205,7 +205,7 @@ class DownloadService : Service() {
         if (d.kind == Kind.HLS && file.name.endsWith(".ts")) {
             DownloadStore.update(id) { it.copy(speed = 0, note = "Wird in MP4 umgewandelt…") }
             val mp4 = File(file.parentFile, file.name.removeSuffix(".ts") + ".mp4")
-            if (Remuxer.tsToMp4(file, mp4)) {
+            if (Remuxer.tsToMp4(file, mp4, d.durationMs * 1000)) {
                 file.delete()
                 file = mp4
             }

@@ -322,23 +322,52 @@ class DownloadLogicTest {
     }
 
     @Test
-    fun adtsHeaderIsDetectedOnlyWhenItReallyIsOne() {
-        fun frame(size: Int, crc: Boolean): java.nio.ByteBuffer {
+    fun adtsAudioIsSplitIntoRawFrames() {
+        fun frame(size: Int, crc: Boolean): ByteArray {
             val b = ByteArray(size) { 0x55 }
             b[0] = 0xFF.toByte()
             b[1] = (if (crc) 0xF0 else 0xF1).toByte()
-            b[2] = 0x50
+            b[2] = 0x4C // Abtastrate 48000
             b[3] = (0x80 or ((size shr 11) and 0x03)).toByte()
             b[4] = ((size shr 3) and 0xFF).toByte()
             b[5] = (((size and 0x07) shl 5) or 0x1F).toByte()
             b[6] = 0xFC.toByte()
-            return java.nio.ByteBuffer.wrap(b)
+            return b
         }
-        assertEquals(7, win.wintertools.videocatcher.net.Adts.headerLength(frame(371, crc = false), 371))
-        assertEquals(9, win.wintertools.videocatcher.net.Adts.headerLength(frame(371, crc = true), 371))
-        // Laenge im Kopf passt nicht zum Stueck -> kein ADTS-Kopf, nichts abschneiden
-        assertEquals(0, win.wintertools.videocatcher.net.Adts.headerLength(frame(371, crc = false), 300))
-        // Rohes AAC ohne Kopf
-        assertEquals(0, win.wintertools.videocatcher.net.Adts.headerLength(java.nio.ByteBuffer.wrap(ByteArray(200) { 0x21 }), 200))
+        fun frames(bytes: ByteArray, size: Int = bytes.size) =
+            win.wintertools.videocatcher.net.Adts.frames(java.nio.ByteBuffer.wrap(bytes), size)?.map { it.offset to it.length }
+
+        // Ein Rahmen: Kopf von 7 bzw. 9 Bytes faellt weg
+        assertEquals(listOf(7 to 364), frames(frame(371, crc = false)))
+        assertEquals(listOf(9 to 362), frames(frame(371, crc = true)))
+        // Mehrere Rahmen in einem Tonstueck werden einzeln geliefert
+        assertEquals(listOf(7 to 293, 307 to 393, 707 to 193), frames(frame(300, false) + frame(400, false) + frame(200, false)))
+        // Passt die Laenge nicht oder ist es rohes AAC: unveraendert lassen
+        assertNull(frames(frame(371, crc = false), 300))
+        assertNull(frames(frame(300, false) + ByteArray(50) { 0x21 }))
+        assertNull(frames(ByteArray(200) { 0x21 }))
+        // 1024 Abtastwerte bei 48 kHz
+        assertEquals(21333L, win.wintertools.videocatcher.net.Adts.frameDurationUs(java.nio.ByteBuffer.wrap(frame(371, false))))
+    }
+
+    @Test
+    fun convertedLengthMustMatchTheStream() {
+        val ok = win.wintertools.videocatcher.net.LiveRemuxer.Companion::lengthMatches
+        val minute = 60_000_000L
+        assertTrue(ok(90 * minute, 90 * minute))
+        assertTrue(ok(90 * minute - 4_000_000, 90 * minute))
+        // Ein Film, der auf wenige Sekunden zusammengeschoben wurde, faellt durch
+        assertTrue(!ok(6_000_000, 90 * minute))
+        assertTrue(!ok(45 * minute, 90 * minute))
+        // Laenge unbekannt: nur leere Ergebnisse ablehnen
+        assertTrue(ok(minute, 0))
+        assertTrue(!ok(-1, 0))
+    }
+
+    @Test
+    fun playlistDurationIsStoredForTheCheck() = runBlocking {
+        val d = newDownload("/hd/index.m3u8", Kind.HLS, "dur.ts")
+        HlsDownloader.run(d)
+        assertEquals(80_000L, DownloadStore.get(d.id)!!.durationMs)
     }
 }

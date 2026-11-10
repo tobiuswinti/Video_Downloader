@@ -14,7 +14,7 @@ import java.nio.ByteBuffer
  */
 object Remuxer {
 
-    fun tsToMp4(src: File, dst: File): Boolean {
+    fun tsToMp4(src: File, dst: File, expectedUs: Long = 0L): Boolean {
         val extractor = MediaExtractor()
         var muxer: MediaMuxer? = null
         var ok = false
@@ -44,25 +44,41 @@ object Remuxer {
             val buffer = ByteBuffer.allocate(bufferSize)
             val info = MediaCodec.BufferInfo()
             var samples = 0L
+            var maxTime = 0L
+            var audioMax = -1L
             while (true) {
                 val size = extractor.readSampleData(buffer, 0)
                 if (size < 0) break
-                val track = trackMap[extractor.sampleTrackIndex]
+                val index = extractor.sampleTrackIndex
+                val track = trackMap[index]
                 if (track != null) {
-                    // AAC aus TS traegt einen ADTS-Kopf, der in MP4 nicht stehen darf
-                    val skip = if (extractor.sampleTrackIndex in aacTracks) Adts.headerLength(buffer, size) else 0
-                    info.set(
-                        skip, size - skip, extractor.sampleTime,
-                        extractor.sampleFlags and MediaCodec.BUFFER_FLAG_KEY_FRAME
-                    )
-                    muxer.writeSampleData(track, buffer, info)
-                    samples++
+                    val t = extractor.sampleTime.coerceAtLeast(0)
+                    // AAC aus TS: ADTS-Koepfe entfernen, jeden Rahmen einzeln schreiben
+                    val frames = if (index in aacTracks) Adts.frames(buffer, size) else null
+                    if (frames != null) {
+                        val step = Adts.frameDurationUs(buffer)
+                        var ft = t
+                        for (f in frames) {
+                            if (ft > audioMax) {
+                                info.set(f.offset, f.length, ft, MediaCodec.BUFFER_FLAG_KEY_FRAME)
+                                muxer.writeSampleData(track, buffer, info)
+                                audioMax = ft
+                                samples++
+                            }
+                            ft += step
+                        }
+                    } else {
+                        info.set(0, size, t, extractor.sampleFlags and MediaCodec.BUFFER_FLAG_KEY_FRAME)
+                        muxer.writeSampleData(track, buffer, info)
+                        samples++
+                    }
+                    if (t > maxTime) maxTime = t
                 }
                 if (!extractor.advance()) break
             }
             muxer.stop()
             // Plausibilitaet: eine deutlich kleinere Datei heisst, es fehlt etwas
-            ok = samples > 0 && dst.length() > src.length() / 2
+            ok = samples > 0 && dst.length() > src.length() / 2 && LiveRemuxer.lengthMatches(maxTime, expectedUs)
         } catch (_: Throwable) {
             ok = false
         } finally {

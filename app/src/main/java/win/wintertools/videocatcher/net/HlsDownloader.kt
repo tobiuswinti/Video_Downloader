@@ -21,7 +21,9 @@ object HlsDownloader {
     class Playlist(
         val segments: List<String>,
         val initSegment: String?,
-        val separateAudio: Boolean
+        val separateAudio: Boolean,
+        /** Laenge laut Playlist (Summe der Segmentdauern) in Millisekunden */
+        val durationMs: Long
     ) {
         /** fMP4-Segmente ergeben aneinandergehaengt direkt eine MP4-Datei */
         val isFmp4: Boolean
@@ -63,13 +65,14 @@ object HlsDownloader {
 
         // fMP4-Streams sind schon MP4: nichts umzupacken
         val remux = if (pl.isFmp4) null else live
-        if (remux != null && resume && bytes > 0) {
-            DownloadStore.update(d.id) { it.copy(note = "Bereits geladener Teil wird übernommen…") }
-            remux.feed(file, 0, bytes)
-        }
+        // Beim Fortsetzen: der schon geladene Teil wird im Hintergrund nachgeholt
+        remux?.advance(bytes)
 
         DownloadStore.update(d.id, force = true) {
-            it.copy(segTotal = total, segDone = start, done = bytes, total = -1L, note = note)
+            it.copy(
+                segTotal = total, segDone = start, done = bytes, total = -1L, note = note,
+                durationMs = if (pl.durationMs > 0) pl.durationMs else it.durationMs
+            )
         }
 
         if (start == 0 && pl.initSegment != null) {
@@ -80,10 +83,9 @@ object HlsDownloader {
         var tickBytes = bytes
         for (i in start until total) {
             currentCoroutineContext().ensureActive()
-            val before = bytes
             bytes += fetchInto(pl.segments[i], file, d)
-            // Segment sofort in die MP4-Datei uebernehmen
-            remux?.feed(file, before, bytes - before)
+            // Das Segment ist vollstaendig: fuer die MP4-Datei freigeben
+            remux?.advance(bytes)
 
             val now = System.currentTimeMillis()
             val speed = (bytes - tickBytes) * 1000 / (now - tickTime).coerceAtLeast(1)
@@ -195,7 +197,8 @@ object HlsDownloader {
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .map { Http.absolute(playlistUrl, it) }
         if (segments.isEmpty()) throw FatalDownloadException("Die Playlist enthält keine Segmente")
-        return Playlist(segments, init, separateAudio)
+        val seconds = Regex("#EXTINF:([0-9.]+)").findAll(text).sumOf { it.groupValues[1].toDoubleOrNull() ?: 0.0 }
+        return Playlist(segments, init, separateAudio, (seconds * 1000).toLong())
     }
 
     class Variant(val uri: String, val bandwidth: Long, val height: Int, val audioGroup: String?)

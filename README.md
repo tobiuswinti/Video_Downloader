@@ -1,4 +1,4 @@
-# VideoCatcher 2.1
+# VideoCatcher 2.2
 
 Android-App: eine Webseite öffnen, das Video abspielen, die Videodatei herunterladen.
 Mehrere Downloads laufen gleichzeitig und im Hintergrund weiter.
@@ -6,7 +6,7 @@ Mehrere Downloads laufen gleichzeitig und im Hintergrund weiter.
 ## Installieren (ohne PC)
 
 1. Auf GitHub rechts auf **Releases** tippen.
-2. Beim neuesten Eintrag `VideoCatcher-2.1.apk` antippen und herunterladen.
+2. Beim neuesten Eintrag `VideoCatcher-2.2.apk` antippen und herunterladen.
 3. Datei öffnen → «Unbekannte Apps installieren» für den Browser erlauben → Installieren.
 
 Jede Änderung im Branch `main` baut automatisch eine neue APK (Reiter **Actions**).
@@ -31,9 +31,11 @@ gelöscht werden.
 - Fortschrittsbalken, Prozent, Grösse, Geschwindigkeit; Pause / Weiter / Nochmal / Löschen.
 - Bis zu 3 gleichzeitig, weitere warten. Läuft mit Benachrichtigung im Hintergrund weiter.
 - Bricht die Verbindung ab, wird von selbst an der gleichen Stelle fortgesetzt.
-- Streams werden schon **während des Ladens** in MP4 umgepackt (Segment für Segment, direkt in die
-  Zieldatei). Am Ende entfällt das Warten auf eine Umwandlung. Klappt das bei einem Stream nicht,
-  wird wie früher nach dem Laden umgewandelt.
+- Streams werden schon **während des Ladens** in MP4 umgepackt (ein Hintergrund-Faden liest die
+  wachsende Datei als einen durchgehenden Strom). Am Ende bleibt nur ein kurzer Abschluss.
+- Sicherung: Die MP4 wird nur übernommen, wenn ihre Länge zur Länge des Streams passt und der Ton
+  so lang ist wie das Bild. Sonst wird nach dem Laden umgewandelt; scheitert auch das, bleibt die
+  ursprüngliche `.ts`-Datei erhalten (der eingebaute Player spielt sie ab).
 - Fertige Videos erscheinen in der Galerie, sortiert in Ordner:
   `Movies/VideoCatcher/<Genre>/` und `Movies/VideoCatcher/Serien/<Serie>/Staffel 1/`.
 - Oben lässt sich ein direkter Video-Link einfügen.
