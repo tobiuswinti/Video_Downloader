@@ -12,8 +12,8 @@ android {
         applicationId = "win.wintertools.videocatcher"
         minSdk = 24
         targetSdk = 34
-        versionCode = 22
-        versionName = "2.2"
+        versionCode = 30
+        versionName = "3.0"
     }
 
     // Fester Schluessel im Repo: jede gebaute APK hat dieselbe Signatur,
@@ -43,7 +43,19 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    testOptions { unitTests.isReturnDefaultValues = true }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all { test ->
+            // Bildschirmfotos der Oberflaeche nur auf Wunsch: ./gradlew testDebugUnitTest -Pscreenshots
+            if (project.hasProperty("screenshots")) {
+                test.systemProperty("roborazzi.test.record", "true")
+                test.maxHeapSize = "2g"
+            } else {
+                test.exclude("**/ScreenshotTest*")
+            }
+        }
+    }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
@@ -59,6 +71,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-core")
 
     // Eingebauter Player der Mediathek
     implementation("androidx.media3:media3-exoplayer:1.4.1")
@@ -68,6 +81,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     testImplementation("junit:junit:4.13.2")
+    // Oberflaeche ohne Geraet rendern (nur fuer Bildschirmfotos)
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.26.0")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Auf dem Rechner gibt es kein Android: echtes org.json fuer die Tests
     testImplementation("org.json:json:20240303")

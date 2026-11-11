@@ -33,6 +33,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -236,18 +251,13 @@ fun LibraryScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
-                    Downloads.remove(context, d, deleteFile = true)
-                    deleting = null
-                }) {
-                    Text(if (d.manual) "Entfernen" else "Löschen", color = Vc.Err, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
+                PillButton(
+                    if (d.manual) "Entfernen" else "Löschen",
+                    onClick = { Downloads.remove(context, d, deleteFile = true); deleting = null },
+                    style = PillStyle.Danger, height = 46.dp
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { deleting = null }) {
-                    Text("Zurück", color = Vc.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+            dismissButton = { PillButton("Zurück", onClick = { deleting = null }, style = PillStyle.Tonal, height = 46.dp) }
         )
     }
 }
@@ -263,19 +273,13 @@ private fun open(tile: Tile, state: LibraryState, showDetail: (Long) -> Unit) {
 
 @Composable
 private fun Header(state: LibraryState, onAddFiles: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Vc.Surface).padding(12.dp)) {
+    Column(Modifier.fillMaxWidth().background(Vc.Surface).padding(horizontal = 14.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Mediathek", color = Vc.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                "Mediathek", color = Vc.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Serif, modifier = Modifier.weight(1f)
             )
-            Button(
-                onClick = onAddFiles,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(46.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-            ) { Text("＋ Video hinzufügen", fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+            PillButton("Video", onClick = onAddFiles, icon = Icons.Filled.Add, height = 46.dp)
         }
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
@@ -284,57 +288,44 @@ private fun Header(state: LibraryState, onAddFiles: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-            placeholder = { Text("⌕  Filme & Serien suchen …", color = Vc.TextDim, fontSize = 16.sp) },
+            placeholder = { Text("Filme & Serien suchen …", color = Vc.TextDim, fontSize = 16.sp) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(22.dp)) },
             trailingIcon = {
                 if (state.query.isNotEmpty()) {
-                    Text(
-                        "✕", color = Vc.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { state.query = "" }.padding(10.dp)
+                    Icon(
+                        Icons.Filled.Close, contentDescription = "Suche leeren", tint = Vc.Text,
+                        modifier = Modifier.clip(CircleShape).clickable { state.query = "" }.padding(10.dp).size(22.dp)
                     )
                 }
             },
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(50),
             colors = fieldColors()
         )
     }
 }
 
 @Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Vc.Text,
-    unfocusedTextColor = Vc.Text,
-    focusedContainerColor = Vc.Bg,
-    unfocusedContainerColor = Vc.Bg,
-    focusedBorderColor = Vc.Accent,
-    unfocusedBorderColor = Vc.Outline,
-    cursorColor = Vc.Accent,
-    focusedLabelColor = Vc.Accent,
-    unfocusedLabelColor = Vc.TextDim
-)
-
-@Composable
 private fun EmptyLibrary(onAddFiles: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().padding(28.dp),
+        Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Box(Modifier.size(84.dp).background(Vc.Surface, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(VcIcons.Library, null, tint = Vc.Accent, modifier = Modifier.size(40.dp))
+        }
+        Spacer(Modifier.height(18.dp))
         Text(
-            "Noch nichts in der Mediathek.",
+            "Noch nichts in der Mediathek",
             color = Vc.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             "Fertige Downloads erscheinen hier von selbst. Videos, die schon auf dem Gerät liegen, lassen sich von Hand hinzufügen.",
-            color = Vc.TextDim, fontSize = 16.sp, textAlign = TextAlign.Center, lineHeight = 24.sp
+            color = Vc.TextDim, fontSize = 16.sp, textAlign = TextAlign.Center, lineHeight = 23.sp
         )
         Spacer(Modifier.height(20.dp))
-        Button(
-            onClick = onAddFiles,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-        ) { Text("＋ Video hinzufügen", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+        PillButton("Video hinzufügen", onClick = onAddFiles, icon = Icons.Filled.Add)
     }
 }
 
@@ -358,12 +349,38 @@ private fun Shelves(
             .sortedWith(compareBy({ it.first == NO_GENRE }, { it.first.lowercase() }))
     }
 
+    // Oben gross: das zuletzt Angefangene, sonst das Neueste
+    val heroItem = resume.firstOrNull()
+    val heroTile = if (heroItem == null) newest.firstOrNull() else null
+
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        if (resume.isNotEmpty()) {
+        item(key = "hero") {
+            if (heroItem != null) {
+                Hero(
+                    cover = heroItem,
+                    kicker = "Weiterschauen",
+                    title = heroItem.series ?: heroItem.title,
+                    sub = (if (heroItem.series != null) "Staffel ${heroItem.season ?: 1}, Folge ${heroItem.episode ?: 1} · " else "") +
+                        "bei ${clock(heroItem.positionMs)}",
+                    button = "Weiter",
+                    onClick = { onResume(heroItem) }
+                )
+            } else if (heroTile != null) {
+                Hero(
+                    cover = heroTile.cover,
+                    kicker = "Neu",
+                    title = heroTile.title,
+                    sub = listOfNotNull(heroTile.genre, lengthText(heroTile.cover.durationMs).ifEmpty { null }).joinToString(" · "),
+                    button = if (heroTile is Tile.Series) "Zur Serie" else "Ansehen",
+                    onClick = { onOpen(heroTile) }
+                )
+            }
+        }
+        if (resume.size > 1) {
             item(key = "resume") {
                 ShelfTitle("Weiterschauen", null)
                 LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(resume, key = { it.id }) { d -> ResumeCard(d) { onResume(d) } }
+                    items(resume.drop(1), key = { it.id }) { d -> ResumeCard(d) { onResume(d) } }
                 }
             }
         }
@@ -380,6 +397,36 @@ private fun Shelves(
         items(byGenre, key = { "g" + it.first }) { (genre, list) ->
             ShelfTitle(genre, "${list.size}")
             TileRow(list.sortedBy { it.title.lowercase() }, onOpen)
+        }
+    }
+}
+
+/** Grosses Titelbild mit Verlauf nach unten, darauf Titel und ein Knopf. */
+@Composable
+private fun Hero(cover: Download, kicker: String, title: String, sub: String, button: String, onClick: () -> Unit) {
+    Box(
+        Modifier.fillMaxWidth().padding(12.dp).aspectRatio(16f / 10f)
+            .clip(RoundedCornerShape(26.dp)).clickable(onClick = onClick)
+    ) {
+        Cover(cover, title, Modifier.fillMaxSize(), letter = false)
+        // Dunkler Verlauf, damit die weisse Schrift auf jedem Bild lesbar bleibt
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color(0x33000000), 0.45f to Color(0x66000000), 1f to Color(0xF2000000))
+            )
+        )
+        Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
+            Text(
+                kicker.uppercase(), color = Vc.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+            Text(
+                title, color = Color.White, fontSize = 28.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 32.sp
+            )
+            if (sub.isNotEmpty()) Text(sub, color = Color.White, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(12.dp))
+            PillButton(button, onClick = onClick, icon = Icons.Filled.PlayArrow, height = 48.dp)
         }
     }
 }
@@ -433,20 +480,25 @@ private fun thumbOf(d: Download): ImageBitmap? {
     return bmp
 }
 
-/** Bild aus dem Video; ohne Bild eine Flaeche mit dem Anfangsbuchstaben. */
+private val coverTints = listOf(
+    Color(0xFF6B5210), Color(0xFF14532D), Color(0xFF1E3A5F), Color(0xFF6B2E1A), Color(0xFF4A2A6B), Color(0xFF0F4F4A)
+)
+
+/** Bild aus dem Video; ohne Bild eine farbige Flaeche mit dem Anfangsbuchstaben. */
 @Composable
-private fun Cover(d: Download, title: String, modifier: Modifier) {
+private fun Cover(d: Download, title: String, modifier: Modifier, letter: Boolean = true) {
     val bmp = thumbOf(d)
+    val tint = coverTints[title.sumOf { it.code } % coverTints.size]
     Box(
-        modifier.background(Brush.verticalGradient(listOf(Vc.SurfaceHigh, Vc.Bg))),
+        modifier.background(Brush.linearGradient(listOf(tint, Vc.SurfaceHigh))),
         contentAlignment = Alignment.Center
     ) {
         if (bmp != null) {
             Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        } else {
+        } else if (letter) {
             Text(
                 title.trim().take(1).uppercase().ifEmpty { "?" },
-                color = Vc.Outline, fontSize = 54.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold
+                color = Color.White, fontSize = 54.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold
             )
         }
     }
@@ -465,18 +517,15 @@ private fun ProgressLine(d: Download, modifier: Modifier) {
 /** Hochformat-Kachel wie ein Filmplakat, darunter Titel und eine Zeile Angaben. */
 @Composable
 private fun PosterCard(tile: Tile, width: Dp?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    Column((if (width != null) Modifier.width(width) else Modifier.fillMaxWidth()).clickable(onClick = onClick)) {
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(shape)
-                .border(BorderStroke(2.dp, Vc.Track), shape)
-        ) {
+    val shape = RoundedCornerShape(18.dp)
+    Column((if (width != null) Modifier.width(width) else Modifier.fillMaxWidth()).clip(shape).clickable(onClick = onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(shape)) {
             Cover(tile.cover, tile.title, Modifier.fillMaxSize())
             if (tile is Tile.Series) {
                 Text(
                     "Serie", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(8.dp).clip(RoundedCornerShape(6.dp))
-                        .background(Vc.Accent).padding(horizontal = 8.dp, vertical = 3.dp)
+                    modifier = Modifier.padding(8.dp).clip(RoundedCornerShape(50))
+                        .background(Vc.Accent).padding(horizontal = 10.dp, vertical = 3.dp)
                 )
             } else if (tile is Tile.Movie) {
                 ProgressLine(tile.d, Modifier.align(Alignment.BottomCenter))
@@ -502,15 +551,14 @@ private fun PosterCard(tile: Tile, width: Dp?, onClick: () -> Unit) {
 /** Breite Kachel fuer "Weiterschauen" mit Fortschritt. */
 @Composable
 private fun ResumeCard(d: Download, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    Column(Modifier.width(240.dp).clickable(onClick = onClick)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(shape).border(BorderStroke(2.dp, Vc.Track), shape)) {
+    val shape = RoundedCornerShape(18.dp)
+    Column(Modifier.width(240.dp).clip(shape).clickable(onClick = onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(shape)) {
             Cover(d, d.title, Modifier.fillMaxSize())
-            Text(
-                "▶", color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Center).clip(RoundedCornerShape(50))
-                    .background(Vc.Accent).padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            Box(
+                Modifier.align(Alignment.Center).size(52.dp).background(Vc.Accent, CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(30.dp)) }
             ProgressLine(d, Modifier.align(Alignment.BottomCenter))
         }
         Spacer(Modifier.height(8.dp))
@@ -538,14 +586,7 @@ private fun SeriesPage(tile: Tile.Series, onBack: () -> Unit, onPlay: (Download)
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().background(Vc.Surface).padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    onClick = onBack,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(46.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp),
-                    border = BorderStroke(2.dp, Vc.Text),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Vc.Text)
-                ) { Text("← Mediathek", fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                CircleButton(Icons.AutoMirrored.Filled.ArrowBack, "Zurück zur Mediathek", onClick = onBack)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -560,17 +601,12 @@ private fun SeriesPage(tile: Tile.Series, onBack: () -> Unit, onPlay: (Download)
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Button(
+            PillButton(
+                (if (next.positionMs > 10_000) "Weiter: " else "") + "Staffel ${next.season ?: 1}, Folge ${next.episode ?: 1}",
                 onClick = { onPlay(next) },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-            ) {
-                Text(
-                    "▶  " + (if (next.positionMs > 10_000) "Weiter: " else "") + "Staffel ${next.season ?: 1}, Folge ${next.episode ?: 1}",
-                    fontSize = 17.sp, fontWeight = FontWeight.Bold
-                )
-            }
+                modifier = Modifier.fillMaxWidth(),
+                icon = Icons.Filled.PlayArrow
+            )
             if (seasons.size > 1) {
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -594,13 +630,13 @@ private fun SeriesPage(tile: Tile.Series, onBack: () -> Unit, onPlay: (Download)
 
 @Composable
 private fun EpisodeRow(d: Download, onPlay: () -> Unit, onMore: () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
-        Modifier.fillMaxWidth().clip(shape).background(Vc.Surface).border(BorderStroke(2.dp, Vc.Track), shape)
+        Modifier.fillMaxWidth().clip(shape).background(Vc.Surface)
             .clickable(onClick = onPlay).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.width(128.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
+        Box(Modifier.width(128.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp))) {
             Cover(d, d.title, Modifier.fillMaxSize())
             ProgressLine(d, Modifier.align(Alignment.BottomCenter))
         }
@@ -611,26 +647,8 @@ private fun EpisodeRow(d: Download, onPlay: () -> Unit, onMore: () -> Unit) {
             val len = lengthText(d.durationMs)
             if (len.isNotEmpty()) Text(len, color = Vc.TextDim, fontSize = 13.sp)
         }
-        Text(
-            "⋮", color = Vc.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onMore).padding(horizontal = 14.dp, vertical = 8.dp)
-        )
+        CircleButton(Icons.Filled.MoreVert, "Mehr", onClick = onMore, size = 44.dp)
     }
-}
-
-@Composable
-private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(50)
-    Text(
-        text,
-        color = if (selected) Vc.OnAccent else Vc.Text,
-        fontSize = 15.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.clip(shape)
-            .background(if (selected) Vc.Accent else Vc.Bg)
-            .border(BorderStroke(2.dp, if (selected) Vc.Accent else Vc.Outline), shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-    )
 }
 
 // -------------------------------------------------------------------- Details
@@ -656,7 +674,7 @@ private fun DetailSheet(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp).navigationBarsPadding()
         ) {
-            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp))) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(22.dp))) {
                 Cover(d, d.title, Modifier.fillMaxSize())
             }
             Spacer(Modifier.height(12.dp))
@@ -671,34 +689,23 @@ private fun DetailSheet(
             Spacer(Modifier.height(14.dp))
 
             val resume = d.positionMs > 10_000
-            SheetButton(if (resume) "▶  Weiter bei ${clock(d.positionMs)}" else "▶  Abspielen", primary = true) { onPlay(false) }
-            if (resume) SheetButton("Von vorn abspielen") { onPlay(true) }
-            SheetButton("Genre / Serie bearbeiten", onClick = onEdit)
+            val wide = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            PillButton(
+                if (resume) "Weiter bei ${clock(d.positionMs)}" else "Abspielen",
+                onClick = { onPlay(false) }, modifier = wide, icon = Icons.Filled.PlayArrow
+            )
+            if (resume) PillButton("Von vorn abspielen", onClick = { onPlay(true) }, modifier = wide, style = PillStyle.Tonal, icon = Icons.Filled.Refresh)
+            PillButton("Genre / Serie bearbeiten", onClick = onEdit, modifier = wide, style = PillStyle.Tonal, icon = Icons.Filled.Edit)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f)) { SheetButton("Andere App", onClick = onOpenExternal) }
-                Box(Modifier.weight(1f)) { SheetButton("Teilen", onClick = onShare) }
+                PillButton("Andere App", onClick = onOpenExternal, modifier = Modifier.weight(1f).padding(bottom = 8.dp), style = PillStyle.Tonal)
+                PillButton("Teilen", onClick = onShare, modifier = Modifier.weight(1f).padding(bottom = 8.dp), style = PillStyle.Tonal, icon = Icons.Filled.Share)
             }
-            SheetButton(if (d.manual) "Aus Mediathek entfernen" else "Löschen", color = Vc.Err, onClick = onDelete)
+            PillButton(
+                if (d.manual) "Aus Mediathek entfernen" else "Löschen",
+                onClick = onDelete, modifier = wide, style = PillStyle.Danger, icon = Icons.Filled.Delete
+            )
             Spacer(Modifier.height(12.dp))
         }
-    }
-}
-
-@Composable
-private fun SheetButton(text: String, primary: Boolean = false, color: Color = Vc.Text, onClick: () -> Unit) {
-    val modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).height(52.dp)
-    if (primary) {
-        Button(
-            onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-        ) { Text(text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
-    } else {
-        OutlinedButton(
-            onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            border = BorderStroke(2.dp, color),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = color)
-        ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
     }
 }
 
@@ -724,10 +731,9 @@ private fun EditDialog(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
             modifier = Modifier.fillMaxWidth(0.94f).heightIn(max = 640.dp),
-            shape = RoundedCornerShape(18.dp),
-            color = Vc.SurfaceHigh,
-            contentColor = Vc.Text,
-            border = BorderStroke(2.dp, Vc.Outline)
+            shape = RoundedCornerShape(28.dp),
+            color = Vc.Surface,
+            contentColor = Vc.Text
         ) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
                 Text("Einordnen", fontSize = 22.sp, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
@@ -736,7 +742,7 @@ private fun EditDialog(
                 OutlinedTextField(
                     value = title, onValueChange = { title = it }, label = { Text("Titel") },
                     modifier = Modifier.fillMaxWidth(), textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-                    shape = RoundedCornerShape(12.dp), colors = fieldColors()
+                    shape = RoundedCornerShape(16.dp), colors = fieldColors()
                 )
                 Spacer(Modifier.height(14.dp))
 
@@ -751,7 +757,7 @@ private fun EditDialog(
                         value = series, onValueChange = { series = it }, label = { Text("Name der Serie") },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                         textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-                        shape = RoundedCornerShape(12.dp), colors = fieldColors()
+                        shape = RoundedCornerShape(16.dp), colors = fieldColors()
                     )
                     val suggestions = knownSeries.filter { !it.equals(series, ignoreCase = true) }
                     if (suggestions.isNotEmpty()) {
@@ -767,14 +773,14 @@ private fun EditDialog(
                             label = { Text("Staffel") }, singleLine = true, modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-                            shape = RoundedCornerShape(12.dp), colors = fieldColors()
+                            shape = RoundedCornerShape(16.dp), colors = fieldColors()
                         )
                         OutlinedTextField(
                             value = episode, onValueChange = { v -> episode = v.filter { it.isDigit() }.take(3) },
                             label = { Text("Folge") }, singleLine = true, modifier = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-                            shape = RoundedCornerShape(12.dp), colors = fieldColors()
+                            shape = RoundedCornerShape(16.dp), colors = fieldColors()
                         )
                     }
                 }
@@ -795,23 +801,20 @@ private fun EditDialog(
                     value = genre, onValueChange = { genre = it }, label = { Text("oder eigenes Genre") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-                    shape = RoundedCornerShape(12.dp), colors = fieldColors()
+                    shape = RoundedCornerShape(16.dp), colors = fieldColors()
                 )
 
                 Spacer(Modifier.height(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = onDismiss, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(2.dp, Vc.Text), colors = ButtonDefaults.outlinedButtonColors(contentColor = Vc.Text)
-                    ) { Text("Abbrechen", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-                    Button(
+                    PillButton("Abbrechen", onClick = onDismiss, modifier = Modifier.weight(1f), style = PillStyle.Tonal)
+                    PillButton(
+                        "Speichern",
                         onClick = {
-                            val s = if (isSeries) series.trim().ifEmpty { null } else null
-                            onSave(title, genre, s, season.toIntOrNull(), episode.toIntOrNull())
+                            val name = if (isSeries) series.trim().ifEmpty { null } else null
+                            onSave(title, genre, name, season.toIntOrNull(), episode.toIntOrNull())
                         },
-                        modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-                    ) { Text("Speichern", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                        modifier = Modifier.weight(1f), icon = Icons.Filled.Check
+                    )
                 }
             }
         }

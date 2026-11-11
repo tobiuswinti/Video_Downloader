@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -176,12 +178,7 @@ fun PlayerScreen(request: PlayRequest, onClose: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Button(
-                    onClick = onClose,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-                ) { Text("✕ Schliessen", fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                CircleButton(Icons.Filled.Close, "Schliessen", onClick = onClose, style = PillStyle.Primary)
                 Column(Modifier.weight(1f)) {
                     Text(
                         current.series ?: current.title,
@@ -195,12 +192,7 @@ fun PlayerScreen(request: PlayRequest, onClose: () -> Unit) {
                         )
                     }
                 }
-                Button(
-                    onClick = { landscape = !landscape },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(46.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262C38), contentColor = Color.White)
-                ) { Text(if (landscape) "⟳ Hochkant" else "⟳ Quer", fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                CircleButton(VcIcons.Rotate, if (landscape) "Hochkant drehen" else "Quer drehen", onClick = { landscape = !landscape })
             }
         }
 
@@ -211,15 +203,7 @@ fun PlayerScreen(request: PlayRequest, onClose: () -> Unit) {
             ) {
                 Text(msg, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(14.dp))
-                Row {
-                    Button(
-                        onClick = { Downloads.open(context, current) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-                    ) { Text("Mit anderer App öffnen", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-                    Spacer(Modifier.width(1.dp))
-                }
+                PillButton("Mit anderer App öffnen", onClick = { Downloads.open(context, current) })
             }
         }
     }

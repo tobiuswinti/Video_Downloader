@@ -1,36 +1,39 @@
 package win.wintertools.videocatcher.ui
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
@@ -59,7 +62,7 @@ import win.wintertools.videocatcher.data.Status
 import win.wintertools.videocatcher.util.PublicStorage
 
 @Composable
-fun DownloadsScreen(items: List<Download>) {
+fun DownloadsScreen(items: List<Download>, onPlay: (Download) -> Unit) {
     val context = LocalContext.current
     val focus = LocalFocusManager.current
     var link by remember { mutableStateOf("") }
@@ -80,9 +83,19 @@ fun DownloadsScreen(items: List<Download>) {
     // Surface faengt alle Beruehrungen ab, damit nichts zum Browser darunter durchgeht
     Surface(modifier = Modifier.fillMaxSize(), color = Vc.Bg, contentColor = Vc.Text) {
         Column(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxWidth().background(Vc.Surface).padding(12.dp)) {
-                Text("Downloads", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Vc.Text)
-                Spacer(Modifier.height(8.dp))
+            Column(Modifier.fillMaxWidth().background(Vc.Surface).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                val running = items.count { it.active }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text("Downloads", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Vc.Text, modifier = Modifier.weight(1f))
+                    if (running > 0) {
+                        val speed = items.filter { it.status == Status.RUNNING }.sumOf { it.speed }
+                        Text(
+                            "$running aktiv" + if (speed > 0) " · ${Format.bytes(speed)}/s" else "",
+                            color = Vc.Ok, fontSize = 15.sp, fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = link,
@@ -90,53 +103,48 @@ fun DownloadsScreen(items: List<Download>) {
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         textStyle = TextStyle(fontSize = 16.sp, color = Vc.Text),
-                        placeholder = { Text("Direkten Video-Link einfügen", color = Vc.TextDim, fontSize = 15.sp) },
+                        placeholder = { Text("Direkten Video-Link einfügen", color = Vc.TextDim, fontSize = 15.sp, maxLines = 1) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { addLink() }),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Vc.Text,
-                            unfocusedTextColor = Vc.Text,
-                            focusedContainerColor = Vc.Bg,
-                            unfocusedContainerColor = Vc.Bg,
-                            focusedBorderColor = Vc.Accent,
-                            unfocusedBorderColor = Vc.Outline,
-                            cursorColor = Vc.Accent
-                        )
+                        shape = RoundedCornerShape(50),
+                        colors = fieldColors()
                     )
-                    Button(
-                        onClick = { addLink() },
-                        enabled = link.isNotBlank(),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.height(52.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Vc.Accent, contentColor = Vc.OnAccent,
-                            disabledContainerColor = Vc.Track, disabledContentColor = Vc.TextDim
-                        )
-                    ) { Text("Laden", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                    CircleButton(
+                        VcIcons.Download, "Link laden", onClick = { addLink() },
+                        style = PillStyle.Primary, enabled = link.isNotBlank(), size = 52.dp
+                    )
                 }
             }
 
             if (items.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
+                Column(
+                    Modifier.fillMaxSize().padding(32.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(Modifier.size(84.dp).background(Vc.Surface, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(VcIcons.Download, null, tint = Vc.Accent, modifier = Modifier.size(40.dp))
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Text("Noch keine Downloads", color = Vc.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        "Noch keine Downloads.\n\nIm Browser eine Seite öffnen, das Video abspielen und unten auf den gelben Knopf tippen.",
-                        color = Vc.TextDim, fontSize = 17.sp, textAlign = TextAlign.Center, lineHeight = 25.sp
+                        "Im Browser eine Seite öffnen, das Video abspielen und unten auf «Video gefunden» tippen.",
+                        color = Vc.TextDim, fontSize = 16.sp, textAlign = TextAlign.Center, lineHeight = 23.sp
                     )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(items, key = { it.id }) { d ->
                         DownloadCard(
                             d = d,
                             onPause = { Downloads.pause(context, d.id) },
                             onResume = { Downloads.resume(context, d.id) },
-                            onOpen = { Downloads.open(context, d) },
+                            onPlay = { onPlay(d) },
                             onShare = { Downloads.share(context, d) },
                             onDelete = { deleting = d }
                         )
@@ -155,34 +163,71 @@ fun DownloadsScreen(items: List<Download>) {
             textContentColor = Vc.Text,
             title = { Text(if (done) "Download löschen?" else "Download abbrechen?", fontWeight = FontWeight.Bold) },
             text = {
-                Text(
-                    if (done) "«${d.title}»\n\nSoll auch die gespeicherte Datei gelöscht werden?"
-                    else "«${d.title}»\n\nDer bisher geladene Teil wird gelöscht.",
-                    fontSize = 16.sp
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    Downloads.remove(context, d, deleteFile = true)
-                    deleting = null
-                }) {
-                    Text(if (done) "Mit Datei löschen" else "Ja, löschen", color = Vc.Err, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Column {
+                    Text(
+                        if (done) "«${d.title}»\n\nDie Videodatei wird vom Gerät gelöscht und verschwindet aus der Mediathek."
+                        else "«${d.title}»\n\nDer bisher geladene Teil wird gelöscht.",
+                        fontSize = 16.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    PillButton(
+                        if (done) "Löschen" else "Ja, abbrechen",
+                        onClick = { Downloads.remove(context, d, deleteFile = true); deleting = null },
+                        modifier = Modifier.fillMaxWidth(), style = PillStyle.Danger, icon = Icons.Filled.Delete
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    PillButton("Zurück", onClick = { deleting = null }, modifier = Modifier.fillMaxWidth(), style = PillStyle.Tonal)
                 }
             },
-            dismissButton = {
-                Row {
-                    if (done) {
-                        TextButton(onClick = {
-                            Downloads.remove(context, d, deleteFile = false)
-                            deleting = null
-                        }) { Text("Nur aus Liste", color = Vc.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-                    }
-                    TextButton(onClick = { deleting = null }) {
-                        Text("Zurück", color = Vc.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
+            confirmButton = {}
+        )
+    }
+}
+
+/** Kreis links auf der Karte: Fortschritt in Prozent bzw. Zustand. */
+@Composable
+private fun StatusRing(d: Download) {
+    val color = when (d.status) {
+        Status.DONE -> Vc.Ok
+        Status.ERROR -> Vc.Err
+        Status.PAUSED -> Vc.Outline
+        else -> Vc.Accent
+    }
+    val fraction = d.fraction
+    val shown by animateFloatAsState(fraction ?: 0f, label = "progress")
+    Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+        when {
+            d.status == Status.DONE -> {
+                Box(Modifier.size(56.dp).background(Vc.Ok, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(30.dp))
                 }
             }
-        )
+            d.status == Status.ERROR -> {
+                Box(Modifier.size(56.dp).background(Vc.ErrSoft, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Warning, null, tint = Vc.Err, modifier = Modifier.size(28.dp))
+                }
+            }
+            fraction != null -> {
+                CircularProgressIndicator(
+                    progress = { shown },
+                    modifier = Modifier.size(60.dp),
+                    color = color, trackColor = Vc.Track, strokeWidth = 6.dp, strokeCap = StrokeCap.Round
+                )
+                Text("${(fraction * 100).toInt()}%", color = Vc.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            d.status == Status.RUNNING -> {
+                // Groesse unbekannt: laufender Ring
+                CircularProgressIndicator(
+                    modifier = Modifier.size(60.dp),
+                    color = color, trackColor = Vc.Track, strokeWidth = 6.dp, strokeCap = StrokeCap.Round
+                )
+            }
+            else -> {
+                Box(Modifier.size(56.dp).background(Vc.SurfaceTop, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(VcIcons.Pause, null, tint = Vc.Text, modifier = Modifier.size(26.dp))
+                }
+            }
+        }
     }
 }
 
@@ -191,114 +236,60 @@ private fun DownloadCard(
     d: Download,
     onPause: () -> Unit,
     onResume: () -> Unit,
-    onOpen: () -> Unit,
+    onPlay: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val barColor = when (d.status) {
-        Status.DONE -> Vc.Ok
-        Status.ERROR -> Vc.Err
-        Status.PAUSED -> Vc.Outline
-        else -> Vc.Accent
-    }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Vc.Surface)
-            .border(BorderStroke(2.dp, Vc.Track), RoundedCornerShape(16.dp))
-            .padding(14.dp)
-    ) {
-        Text(
-            d.title, color = Vc.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-            maxLines = 2, overflow = TextOverflow.Ellipsis
-        )
-        Text(d.fileName, color = Vc.TextDim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(10.dp))
-
-        // Fortschrittsbalken
-        val fraction = d.fraction
-        if (fraction != null) {
-            Box(Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(7.dp)).background(Vc.Track)) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).clip(RoundedCornerShape(7.dp)).background(barColor))
-            }
-        } else if (d.status == Status.RUNNING) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(7.dp)),
-                color = Vc.Accent, trackColor = Vc.Track
-            )
-        } else {
-            Box(Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(7.dp)).background(Vc.Track))
-        }
-        Spacer(Modifier.height(8.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                when {
-                    d.status == Status.DONE -> "Fertig"
-                    fraction != null -> "${(fraction * 100).toInt()} %"
-                    else -> "–"
-                },
-                color = barColor, fontSize = 20.sp, fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(statusLine(d), color = Vc.Text, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        }
-
-        if (d.status == Status.ERROR && d.error != null) {
-            Spacer(Modifier.height(6.dp))
-            Text(d.error, color = Vc.Err, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        }
-        d.note?.let {
-            Spacer(Modifier.height(6.dp))
-            Text(it, color = Vc.TextDim, fontSize = 14.sp)
-        }
-        if (d.status == Status.DONE) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                if (d.publicUri != null) "Gespeichert in: ${PublicStorage.relativePath(d.fileName, d.genre, d.series, d.season)}"
-                else "Gespeichert im App-Ordner",
-                color = Vc.TextDim, fontSize = 14.sp
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (d.status) {
-                Status.RUNNING, Status.QUEUED -> Primary("Pause", Modifier.weight(1f), onPause)
-                Status.PAUSED -> Primary("Weiter", Modifier.weight(1f), onResume)
-                Status.ERROR -> Primary("Nochmal", Modifier.weight(1f), onResume)
-                Status.DONE -> {
-                    Primary("Öffnen", Modifier.weight(1f), onOpen)
-                    Secondary("Teilen", Modifier.weight(1f), Vc.Text, onShare)
+    Surface(color = Vc.Surface, shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusRing(d)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        d.title, color = Vc.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 22.sp
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(statusLine(d), color = Vc.TextDim, fontSize = 14.sp)
                 }
             }
-            Secondary("Löschen", Modifier.weight(1f), Vc.Err, onDelete)
+
+            if (d.status == Status.ERROR && d.error != null) {
+                Spacer(Modifier.height(10.dp))
+                Text(d.error, color = Vc.Err, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+            d.note?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, color = Vc.TextDim, fontSize = 14.sp)
+            }
+            if (d.status == Status.DONE) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (d.publicUri != null) "Gespeichert in ${PublicStorage.relativePath(d.fileName, d.genre, d.series, d.season)}"
+                    else "Gespeichert im App-Ordner",
+                    color = Vc.TextDim, fontSize = 13.sp
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                when (d.status) {
+                    Status.RUNNING, Status.QUEUED ->
+                        PillButton("Pause", onPause, Modifier.weight(1f), icon = VcIcons.Pause, style = PillStyle.Tonal, height = 48.dp)
+                    Status.PAUSED ->
+                        PillButton("Weiter", onResume, Modifier.weight(1f), icon = Icons.Filled.PlayArrow, height = 48.dp)
+                    Status.ERROR ->
+                        PillButton("Nochmal", onResume, Modifier.weight(1f), icon = Icons.Filled.Refresh, height = 48.dp)
+                    Status.DONE -> {
+                        PillButton("Abspielen", onPlay, Modifier.weight(1f), icon = Icons.Filled.PlayArrow, height = 48.dp)
+                        CircleButton(Icons.Filled.Share, "Teilen", onShare, size = 48.dp)
+                    }
+                }
+                CircleButton(Icons.Filled.Delete, "Löschen", onDelete, style = PillStyle.Danger, size = 48.dp)
+            }
         }
     }
-}
-
-@Composable
-private fun Primary(text: String, modifier: Modifier, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(50.dp),
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Vc.Accent, contentColor = Vc.OnAccent)
-    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
-}
-
-@Composable
-private fun Secondary(text: String, modifier: Modifier, color: Color, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.height(50.dp),
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp),
-        border = BorderStroke(2.dp, color),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = color)
-    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
 }
 
 private fun statusLine(d: Download): String {
@@ -312,7 +303,7 @@ private fun statusLine(d: Download): String {
         Status.RUNNING -> if (d.speed > 0) "$size · ${Format.bytes(d.speed)}/s" else size
         Status.QUEUED -> "Wartet auf freien Platz"
         Status.PAUSED -> "Pausiert · $size"
-        Status.DONE -> size
+        Status.DONE -> "Fertig · $size"
         Status.ERROR -> "Fehlgeschlagen · $size"
     }
 }

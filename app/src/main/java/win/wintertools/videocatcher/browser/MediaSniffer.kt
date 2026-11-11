@@ -86,12 +86,16 @@ object MediaSniffer {
 """
 
     /** Kurze Beschreibung fuer die Liste: Groesse, Laenge oder Qualitaet. */
-    suspend fun describe(hit: MediaHit, referer: String?, ua: String?, cookie: String?): String {
+    suspend fun describe(hit: MediaHit, referer: String?, ua: String?, cookie: String?): String =
+        inspect(hit, referer, ua, cookie).label
+
+    /** Beschreibung und - bei Streams mit mehreren Stufen - die waehlbaren Qualitaeten. */
+    suspend fun inspect(hit: MediaHit, referer: String?, ua: String?, cookie: String?): HitInfo {
         return try {
-            if (hit.kind == Kind.HLS) describeHls(hit, referer, ua, cookie)
-            else describeFile(hit, referer, ua, cookie)
+            if (hit.kind == Kind.HLS) inspectHls(hit, referer, ua, cookie)
+            else HitInfo(describeFile(hit, referer, ua, cookie), emptyList())
         } catch (_: Exception) {
-            if (hit.kind == Kind.HLS) "Stream" else hit.ext.uppercase(Locale.ROOT)
+            HitInfo(if (hit.kind == Kind.HLS) "Stream" else hit.ext.uppercase(Locale.ROOT), emptyList())
         }
     }
 
@@ -108,18 +112,48 @@ object MediaSniffer {
         }
     }
 
-    private suspend fun describeHls(hit: MediaHit, referer: String?, ua: String?, cookie: String?): String {
-        val text = HlsDownloader.fetchText(hit.url, referer, ua, cookie)
-        if (text.contains("#EXT-X-STREAM-INF")) {
-            val best = HlsDownloader.variants(text).maxOfOrNull { it.height } ?: 0
-            return if (best > 0) "Stream · beste Qualität ${best}p" else "Stream · beste Qualität"
-        }
+    private fun mediaLabel(text: String): String {
         if (Regex("#EXT-X-KEY:[^\\n]*METHOD=(?!NONE)").containsMatchIn(text)) return "Stream · verschlüsselt (nicht ladbar)"
         if (!text.contains("#EXT-X-ENDLIST")) return "Livestream (nicht ladbar)"
-        val seconds = Regex("#EXTINF:([0-9.]+)").findAll(text).sumOf { it.groupValues[1].toDoubleOrNull() ?: 0.0 }
-        return if (seconds > 0) "Stream · ${Format.duration(seconds.toLong())}" else "Stream"
+        val seconds = seconds(text)
+        return if (seconds > 0) "Stream · ${Format.duration(seconds)}" else "Stream"
+    }
+
+    private fun seconds(text: String): Long =
+        Regex("#EXTINF:([0-9.]+)").findAll(text).sumOf { it.groupValues[1].toDoubleOrNull() ?: 0.0 }.toLong()
+
+    private suspend fun inspectHls(hit: MediaHit, referer: String?, ua: String?, cookie: String?): HitInfo {
+        val text = HlsDownloader.fetchText(hit.url, referer, ua, cookie)
+        if (!text.contains("#EXT-X-STREAM-INF")) return HitInfo(mediaLabel(text), emptyList())
+
+        // Mehrere Stufen: je Aufloesung die beste behalten, hoechste zuerst
+        val variants = HlsDownloader.variants(text)
+            .groupBy { it.height }
+            .map { (_, list) -> list.maxByOrNull { it.bandwidth }!! }
+            .sortedWith(compareByDescending<HlsDownloader.Variant> { it.height }.thenByDescending { it.bandwidth })
+            .take(6)
+        if (variants.isEmpty()) return HitInfo("Stream", emptyList())
+
+        // Laenge aus der besten Stufe lesen - daraus ergibt sich die ungefaehre Groesse jeder Stufe
+        val firstUrl = Http.absolute(hit.url, variants.first().uri)
+        val media = runCatching { HlsDownloader.fetchText(firstUrl, referer, ua, cookie) }.getOrNull()
+        val duration = if (media != null) seconds(media) else 0L
+        val qualities = variants.map { v ->
+            Quality(
+                label = if (v.height > 0) "${v.height}p" else "${v.bandwidth / 1000} kbit/s",
+                url = Http.absolute(hit.url, v.uri),
+                height = v.height,
+                sizeBytes = if (duration > 0 && v.bandwidth > 0) v.bandwidth * duration / 8 else null
+            )
+        }
+        return HitInfo(if (media != null) mediaLabel(media) else "Stream", if (qualities.size > 1) qualities else emptyList())
     }
 }
+
+/** Eine waehlbare Qualitaetsstufe eines Streams */
+class Quality(val label: String, val url: String, val height: Int, val sizeBytes: Long?)
+
+class HitInfo(val label: String, val qualities: List<Quality>)
 
 object Format {
     fun bytes(b: Long): String {

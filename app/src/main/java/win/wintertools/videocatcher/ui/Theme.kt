@@ -10,21 +10,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Farben mit hohem Kontrast: weisse Schrift auf fast schwarzem Grund,
- * Gelb mit schwarzer Schrift fuer alles, was man antippen soll.
+ * Farben: weisse Schrift auf fast schwarzem Grund, Bernsteingelb mit schwarzer
+ * Schrift fuer alles, was man antippen soll. Flaechen werden ueber Helligkeits-
+ * stufen getrennt statt ueber Rahmen. Alle Text-Kombinationen haben ein
+ * Kontrastverhaeltnis von mindestens 10:1.
  */
 object Vc {
-    val Bg = Color(0xFF0B0D10)
-    val Surface = Color(0xFF171A20)
-    val SurfaceHigh = Color(0xFF262C38)
+    val Bg = Color(0xFF0A0B0E)
+    val Surface = Color(0xFF15171C)
+    val SurfaceHigh = Color(0xFF20242C)
+    val SurfaceTop = Color(0xFF2C313C)
     val Text = Color(0xFFFFFFFF)
-    val TextDim = Color(0xFFCDD5E0)
-    val Outline = Color(0xFF9AA5B5)
-    val Accent = Color(0xFFFFD400)
-    val OnAccent = Color(0xFF000000)
-    val Ok = Color(0xFF5BE38C)
-    val Err = Color(0xFFFF8A8A)
-    val Track = Color(0xFF3A4352)
+    val TextDim = Color(0xFFC9D0DB)
+    val Outline = Color(0xFF93A0B3)
+    val Accent = Color(0xFFFFD23F)
+    val AccentSoft = Color(0xFF3A3212)
+    val OnAccent = Color(0xFF0B0B0B)
+    val Ok = Color(0xFF4ADE80)
+    val Err = Color(0xFFFF8585)
+    val ErrSoft = Color(0xFF3A1A1C)
+    val Track = Color(0xFF343A47)
 }
 
 private val scheme = darkColorScheme(
@@ -48,7 +53,7 @@ private val scheme = darkColorScheme(
     surfaceContainerLow = Vc.Surface,
     surfaceContainer = Vc.Surface,
     surfaceContainerHigh = Vc.SurfaceHigh,
-    surfaceContainerHighest = Vc.SurfaceHigh,
+    surfaceContainerHighest = Vc.SurfaceTop,
     outline = Vc.Outline,
     outlineVariant = Vc.Track,
     error = Vc.Err,

@@ -1,4 +1,4 @@
-# VideoCatcher 2.2
+# VideoCatcher 3.0
 
 Android-App: eine Webseite öffnen, das Video abspielen, die Videodatei herunterladen.
 Mehrere Downloads laufen gleichzeitig und im Hintergrund weiter.
@@ -6,7 +6,7 @@ Mehrere Downloads laufen gleichzeitig und im Hintergrund weiter.
 ## Installieren (ohne PC)
 
 1. Auf GitHub rechts auf **Releases** tippen.
-2. Beim neuesten Eintrag `VideoCatcher-2.2.apk` antippen und herunterladen.
+2. Beim neuesten Eintrag `VideoCatcher-3.0.apk` antippen und herunterladen.
 3. Datei öffnen → «Unbekannte Apps installieren» für den Browser erlauben → Installieren.
 
 Jede Änderung im Branch `main` baut automatisch eine neue APK (Reiter **Actions**).
@@ -26,6 +26,15 @@ gelöscht werden.
   In der Leiste oder im Menü ⋮ lassen sich Pop-ups ganz blockieren.
 - Der Wechsel zu **Downloads** und zurück lädt die Seite nicht neu.
 - Zurück-Taste: Vollbild verlassen → Downloads schliessen → Pop-up schliessen → eine Seite zurück.
+
+**Neu in 3.0**
+- Überarbeitete Oberfläche: runde Flächen statt Rahmen, echte Symbole, Fortschrittsringe, grosses
+  Titelbild in der Mediathek. Weiterhin weisse Schrift auf Schwarz und Gelb für alles Antippbare.
+- **Qualität wählen:** Bietet ein Stream mehrere Stufen an (1080p, 720p …), stehen sie mit der
+  ungefähren Dateigrösse zur Auswahl. Die zuletzt gewählte Stufe ist beim nächsten Mal vorgewählt.
+- **Schnellzugriff:** Stern in der Adresszeile merkt sich die Seite; sie erscheint als Kachel auf der
+  Startseite. Lange drücken entfernt sie.
+- Fertige Downloads lassen sich direkt im eingebauten Player abspielen.
 
 **Downloads**
 - Fortschrittsbalken, Prozent, Grösse, Geschwindigkeit; Pause / Weiter / Nochmal / Löschen.
@@ -82,6 +91,9 @@ app/src/test/                    Tests der Download-Logik gegen einen lokalen Te
 ```
 
 Bauen am PC: `./gradlew assembleDebug` (JDK 17, Android SDK 35).
+
+Bildschirmfotos der Oberfläche ohne Gerät: `./gradlew testDebugUnitTest -Pscreenshots`
+(Ergebnis in `app/build/shots/`).
 
 Der Signaturschlüssel in `keystore/` liegt absichtlich im Repo, damit jeder Build dieselbe
 Signatur hat. Er schützt nichts – für eine Veröffentlichung im Play Store bräuchte es einen geheimen.

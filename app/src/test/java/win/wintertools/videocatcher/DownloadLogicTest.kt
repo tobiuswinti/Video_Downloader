@@ -287,8 +287,27 @@ class DownloadLogicTest {
         assertEquals("MP4 · 2,9 MB", MediaSniffer.describe(file, null, null, null))
         val stream = MediaSniffer.classify("$base/hd/index.m3u8", null)!!
         assertEquals("Stream · 1:20 Min.", MediaSniffer.describe(stream, null, null, null))
+    }
+
+    @Test
+    fun streamOffersQualitiesWithEstimatedSize() = runBlocking {
         val master = MediaSniffer.classify("$base/master.m3u8", null)!!
-        assertEquals("Stream · beste Qualität 1080p", MediaSniffer.describe(master, null, null, null))
+        val info = MediaSniffer.inspect(master, null, null, null)
+        assertEquals("Stream · 1:20 Min.", info.label)
+        // Hoechste Stufe zuerst
+        assertEquals(listOf("1080p", "720p", "360p"), info.qualities.map { it.label })
+        assertEquals("$base/hd/index.m3u8", info.qualities[0].url)
+        // Groesse = Datenrate x Laenge: 2,5 Mbit/s x 80 s
+        assertEquals(25_000_000L, info.qualities[0].sizeBytes)
+        assertEquals(9_000_000L, info.qualities[1].sizeBytes)
+
+        // Eine gewaehlte Stufe laesst sich direkt laden
+        val d = newDownload("/hd/index.m3u8", Kind.HLS, "q.ts")
+        assertArrayEquals(allSegments, HlsDownloader.run(d).readBytes())
+
+        // Stream mit nur einer Stufe: keine Auswahl
+        val single = MediaSniffer.classify("$base/hd/index.m3u8", null)!!
+        assertTrue(MediaSniffer.inspect(single, null, null, null).qualities.isEmpty())
     }
 
     // ------------------------------------------------------------- Einordnung

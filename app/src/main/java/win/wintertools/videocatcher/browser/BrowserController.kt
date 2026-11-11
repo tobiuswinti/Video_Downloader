@@ -87,7 +87,52 @@ class BrowserController(private val activity: Activity) {
     val main: WebView = createWebView(isMain = true)
     val userAgent: String get() = main.settings.userAgentString
 
+    // ------------------------------------------------------- Schnellzugriff
+
+    class Bookmark(val title: String, val url: String)
+
+    /** Gemerkte Seiten fuer die Startseite */
+    val bookmarks = mutableStateListOf<Bookmark>()
+
+    /** Zuletzt gewaehlte Aufloesung - wird beim naechsten Stream vorgewaehlt (0 = beste) */
+    var preferredHeight by mutableIntStateOf(prefs.getInt("quality", 0))
+        private set
+
+    val isBookmarked: Boolean get() = url.isNotEmpty() && bookmarks.any { it.url == url }
+
+    fun toggleBookmark() {
+        if (url.isEmpty()) return
+        val existing = bookmarks.firstOrNull { it.url == url }
+        if (existing != null) bookmarks.remove(existing)
+        else bookmarks.add(0, Bookmark(title.ifBlank { hostOf(url) }.take(60), url))
+        saveBookmarks()
+    }
+
+    fun removeBookmark(b: Bookmark) {
+        bookmarks.remove(b)
+        saveBookmarks()
+    }
+
+    private fun saveBookmarks() {
+        val arr = JSONArray()
+        bookmarks.forEach { arr.put(org.json.JSONObject().put("title", it.title).put("url", it.url)) }
+        prefs.edit().putString("bookmarks", arr.toString()).apply()
+    }
+
+    private fun loadBookmarks() {
+        runCatching {
+            val arr = JSONArray(prefs.getString("bookmarks", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                bookmarks.add(Bookmark(o.optString("title"), o.getString("url")))
+            }
+        }
+    }
+
+    fun hostOf(u: String): String = Uri.parse(u).host.orEmpty().removePrefix("www.")
+
     init {
+        loadBookmarks()
         goHome()
     }
 
@@ -170,8 +215,6 @@ class BrowserController(private val activity: Activity) {
         }, 400)
     }
 
-    private fun hostOf(u: String): String = Uri.parse(u).host.orEmpty().removePrefix("www.")
-
     // --------------------------------------------------------------- Vollbild
 
     fun exitFullscreen() {
@@ -219,11 +262,17 @@ class BrowserController(private val activity: Activity) {
         }
     }
 
-    fun download(hit: MediaHit) {
-        val cookie = CookieManager.getInstance().getCookie(hit.url)
+    /** @param quality gewaehlte Stufe eines Streams (null = beste bzw. einzige) */
+    fun download(hit: MediaHit, quality: Quality? = null) {
+        val target = quality?.url ?: hit.url
+        val cookie = CookieManager.getInstance().getCookie(target) ?: CookieManager.getInstance().getCookie(hit.url)
+        if (quality != null && quality.height > 0) {
+            preferredHeight = quality.height
+            prefs.edit().putInt("quality", quality.height).apply()
+        }
         Downloads.start(
             activity,
-            url = hit.url,
+            url = target,
             kind = hit.kind,
             ext = hit.ext,
             title = title.ifBlank { null },
@@ -405,29 +454,7 @@ class BrowserController(private val activity: Activity) {
     }
 
     companion object {
-        private const val START_HTML = """
-<!doctype html><html lang="de"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-  body{margin:0;padding:28px 22px;background:#0B0D10;color:#fff;font-family:sans-serif;line-height:1.5}
-  h1{font-size:26px;margin:0 0 6px}
-  p.sub{color:#CDD5E0;font-size:16px;margin:0 0 26px}
-  ol{padding:0;margin:0;list-style:none;counter-reset:s}
-  li{counter-increment:s;position:relative;padding:14px 14px 14px 58px;margin-bottom:12px;
-     background:#171A20;border:2px solid #3A4352;border-radius:14px;font-size:17px}
-  li:before{content:counter(s);position:absolute;left:14px;top:12px;width:32px;height:32px;border-radius:50%;
-     background:#FFD400;color:#000;font-weight:bold;text-align:center;line-height:32px}
-  b{color:#FFD400}
-</style></head><body>
-<h1>VideoCatcher</h1>
-<p class="sub">Videos von Webseiten speichern</p>
-<ol>
-  <li>Oben die <b>Adresse</b> der Seite eingeben und <b>Los</b> antippen.</li>
-  <li>Das Video auf der Seite <b>abspielen</b>.</li>
-  <li>Unten erscheint der gelbe Knopf <b>Video gefunden</b> – antippen und herunterladen.</li>
-  <li>Der Fortschritt steht im Reiter <b>Downloads</b>. Das Laden läuft im Hintergrund weiter.</li>
-</ol>
-</body></html>
-"""
+        private const val START_HTML =
+            "<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{background:#0A0B0E;margin:0}</style></head><body></body></html>"
     }
 }
